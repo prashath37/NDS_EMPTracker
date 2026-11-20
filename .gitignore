@@ -1,6 +1,0 @@
-node_modules/
-.vercel/
-.firebase/
-.DS_Store
-*.log
-performance-backup*.json
