@@ -5,7 +5,6 @@
 <title>NDS EMP Tracker</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%233f6bf5'/%3E%3Cstop offset='1' stop-color='%232323c9'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='8' fill='url(%23g)'/%3E%3Cg fill='white'%3E%3Crect x='6' y='18' width='4' height='8' rx='1.2' opacity='.65'/%3E%3Crect x='12' y='13' width='4' height='13' rx='1.2' opacity='.82'/%3E%3Crect x='18' y='8' width='4' height='18' rx='1.2'/%3E%3Ccircle cx='25' cy='8' r='2.6'/%3E%3C/g%3E%3C/svg%3E">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
@@ -320,8 +319,8 @@ const del=(s,k)=>FBON()?fdel(s,k):ldel(s,k);
 const clr=s=>FBON()?fclr(s):lclr(s);
 /* a form entry + its bill photo are saved together, or not at all */
 const putEntry=async(fb,photo)=>{
-  if(!FBON()){const id=await lput("feedback",fb);await lput("photos",{id,data:photo});return id}
-  const{F,db}=await fbInit;fb.id=String(fb.id||newId());const b=F.writeBatch(db);b.set(F.doc(db,"feedback",fb.id),fb);b.set(F.doc(db,"photos",fb.id),{id:fb.id,data:photo});await TO(b.commit(),40000);return fb.id};
+  if(!FBON()){return lput("feedback",fb)}
+  const{F,db}=await fbInit;fb.id=String(fb.id||newId());const b=F.writeBatch(db);b.set(F.doc(db,"feedback",fb.id),fb);await TO(b.commit(),40000);return fb.id};
 const M2={},SS={g:k=>{try{return sessionStorage.getItem(k)}catch(_){return M2[k]??null}},s:(k,v)=>{try{sessionStorage.setItem(k,v)}catch(_){M2[k]=v}},r:k=>{try{sessionStorage.removeItem(k)}catch(_){delete M2[k]}}};
 const failHint=m=>/insufficient permissions|permission-denied/i.test(m)?"Firebase rules blocked this. Publish firestore.rules in Firebase > Firestore Database > Rules, and make sure the admin email inside the rules is exactly "+CFG.ADMIN_EMAIL+".":/offline|unavailable|not-found|NOT_FOUND/i.test(m)?"Firestore cannot be reached. Make sure the database is created: Firebase > Firestore Database > Create database (Standard edition).":"";
 const fail=m=>{const t=failHint(String(m));$("#app").innerHTML='<div class="card narrow"><h1>Something went wrong</h1><p class="mu">'+esc(m)+'</p>'+(t?'<p><b>'+esc(t)+'</b></p>':'')+'<p><button onclick="location.reload()">Reload</button></p></div>'};
@@ -337,32 +336,27 @@ addEventListener("hashchange",route);
 /* ---------- STAFF FORM (opens only via QR link) ---------- */
 const QP=new URLSearchParams(location.search),qrBase=()=>location.href.split("#")[0].split("?")[0];let lastEmp="";
 async function form(){
-  let rating=0,photo="",s=null;const stp=n=>document.querySelectorAll("#stp span").forEach((x,i)=>x.className=i<n?"on":"");
+  let rating=0,s=null;const stp=n=>document.querySelectorAll("#stp span").forEach((x,i)=>x.className=i<n?"on":"");
   $("#app").innerHTML=`<div class="fm"><div class="card" style="padding:0;overflow:hidden"><div class="hd"><div class="logo" style="margin:0;background:#fff;color:#2f5bea">${LOGO}</div><div><b style="font-size:18px">Service entry</b><div style="opacity:.8;font-size:12px">Record a bill and customer feedback</div></div></div>
   <div class="steps" id="stp"><span class="on">1 Employee</span><span>2 Bill</span><span>3 Customer</span></div><div style="padding:16px">
   <label>Employee number *</label><input id="e" inputmode="numeric" autocomplete="off" placeholder="e.g. 1001" value="${esc(QP.get("emp")||lastEmp)}"><div id="who"></div>
   <div id="rest" class="hide"><div><h3>Bill</h3>
-  <label class="drop" for="ph"><input id="ph" type="file" accept="image/*" capture="environment" style="display:none"><div id="dzt">📷 Tap to take or upload the bill photo *</div><img id="pv" class="hide"></label><div class="chip" id="ocr">The bill number and value are read automatically from the photo.</div>
-  <div class="row"><div><label>Bill number *</label><input id="bn"></div><div><label>Bill value *</label><input id="bv" type="number" min="0" step="0.01" inputmode="decimal"></div></div>
+    <div class="row"><div><label>Bill number *</label><input id="bn"></div><div><label>Bill value *</label><input id="bv" type="number" min="0" step="0.01" inputmode="decimal"></div></div>
   </div><div><h3>Customer</h3><div class="row"><div><label>Customer name *</label><input id="cn"></div><div><label>Contact number *</label><input id="cp" type="tel" inputmode="tel"></div></div>
   <label>How was the service? (optional)</label><div class="stars" id="st">${[1,2,3,4,5].map(n=>`<button type="button" data-n="${n}">${n} ★</button>`).join("")}</div>
   <label>Comments</label><textarea id="cm" rows="3"></textarea>
   <button id="sub" style="width:100%;margin-top:16px;padding:14px;font-size:16px">Submit entry</button><div id="out"></div></div></div></div></div></div>`;
   const look=async()=>{const id=$("#e").value.trim();let r=null;try{r=id?await one("staff",id):null}catch(e){$("#who").innerHTML='<div class="mu" style="margin-top:6px;color:#dc2626">'+esc(e.message)+'</div>';return}if(id!==$("#e").value.trim())return;s=r;
     $("#who").innerHTML=s?`<div class="who">${avt(s.name,s.photo,"#16a34a")}<div><b>${esc(s.name)}</b><div class="mu">${esc(s.designation||"")}${s.designation?" · ":""}${esc(s.branch)} · ${esc(s.dept)}</div></div></div>`:(id?'<div class="mu" style="margin-top:6px;color:#dc2626">Employee number not found.</div>':"");
-    $("#rest").classList.toggle("hide",!s);stp(s?(photo?3:2):1)};
+    $("#rest").classList.toggle("hide",!s);stp(s?($("#bn").value&&$("#bv").value?3:2):1)};
   let lt;$("#e").oninput=()=>{clearTimeout(lt);lt=setTimeout(look,FBON()?350:0)};look();
   $("#st").onclick=e=>{const n=+e.target.dataset.n;if(!n)return;rating=n;document.querySelectorAll("#st button").forEach(b=>b.classList.toggle("on",+b.dataset.n<=n))};
-  $("#ph").onchange=async e=>{const f=e.target.files[0];if(!f)return;const o=$("#ocr");o.textContent="Reading bill… (first time may take a moment)";
-    photo=await shrink(f);$("#pv").src=photo;$("#pv").classList.remove("hide");$("#dzt").textContent="📷 Change photo";stp(3);
-    try{const {data}=await Tesseract.recognize(photo,"eng"),p=parse(data.text);if(p.no)$("#bn").value=p.no;if(p.val)$("#bv").value=p.val;
-      o.textContent=(p.no||p.val)?"Detected from photo — please check the values.":"Could not read clearly — please type the bill number and value."}
-    catch(_){o.textContent="Auto-read unavailable (needs internet) — please type the details."}};
+  $("#bv").oninput=$("#bn").oninput=()=>stp(s?($("#bn").value&&$("#bv").value?3:2):1);
   $("#sub").onclick=async()=>{const o=$("#out"),v=parseFloat($("#bv").value),bn=$("#bn").value.trim(),cn=$("#cn").value.trim(),cp=$("#cp").value.trim();
-    if(!s||!photo||!bn||!(v>=0)||!cn||!cp){o.innerHTML='<div class="msg">Please add the bill photo and fill all required fields.</div>';return}
+    if(!s||!bn||!(v>=0)||!cn||!cp){o.innerHTML='<div class="msg">Please fill all required fields.</div>';return}
     if(!FBON()&&(await all("feedback")).some(r=>r.branch===s.branch&&r.bill_no===bn)){o.innerHTML='<div class="msg">This bill was already submitted.</div>';return}
     $("#sub").disabled=true;
-    try{await putEntry({...(FBON()?{id:entryId(s.branch,bn)}:{}),created_at:new Date().toISOString(),emp_no:s.emp_no,staff_name:s.name,branch:s.branch,dept:s.dept,bill_no:bn,bill_value:v,cust_name:cn,cust_phone:cp,rating:rating||null,comment:$("#cm").value.trim()},photo);lastEmp=s.emp_no;
+    try{await putEntry({...(FBON()?{id:entryId(s.branch,bn)}:{}),created_at:new Date().toISOString(),emp_no:s.emp_no,staff_name:s.name,branch:s.branch,dept:s.dept,bill_no:bn,bill_value:v,cust_name:cn,cust_phone:cp,rating:rating||null,comment:$("#cm").value.trim()});lastEmp=s.emp_no;
       $("#app").innerHTML=`<div class="fm"><div class="card cen" style="padding:32px 20px"><div class="logo" style="margin:0 auto 14px;background:linear-gradient(135deg,#3fd6a7,#1fa77d)">✓</div><h1>Entry saved</h1><p class="mu">Bill ${esc(bn)} · ${money(v)} · ${esc(cn)}</p><button id="nx" style="width:100%;margin-top:10px">Add another</button></div></div>`;$("#nx").onclick=form}
     catch(e){o.innerHTML='<div class="msg">'+esc(e.code==="permission-denied"?"Not saved: this bill was already submitted, or the server refused the entry.":"Could not save: "+e.message)+'</div>';$("#sub").disabled=false}};
 }
