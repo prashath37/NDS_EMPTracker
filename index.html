@@ -138,6 +138,33 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 @media(min-width:1600px){.fm{max-width:1280px}}
 body{min-height:100vh;min-height:100dvh}
 @keyframes sp{to{transform:rotate(360deg)}}#rf.spin svg{animation:sp .8s linear infinite}#rf:disabled{opacity:.7;cursor:wait}#rf:hover{background:#eef3ff;color:#2f5bea;border-color:#c9d8ff}
+
+/* ===== PALETTE: light grey (always light) ===== */
+:root{color-scheme:light;--card:#fff;--tx:#2b3340;--mu:#8a93a1;--pr:#5b6678;--bd:#e4e7ec;--in:#f3f4f6;--sh:0 2px 14px rgba(60,70,90,.07)}
+body{background:radial-gradient(900px 520px at 0% 0%,rgba(255,255,255,.9),transparent 62%),radial-gradient(900px 560px at 100% 100%,rgba(205,211,220,.6),transparent 62%),linear-gradient(135deg,#f6f7f9 0%,#e9ebef 55%,#f3f4f6 100%);background-attachment:fixed}
+.sbar{background:linear-gradient(180deg,rgba(255,255,255,.7),rgba(233,235,239,.6));border-right:1px solid #dcdfe5}
+.ws{background:rgba(255,255,255,.7);border:1px solid #e0e3e8}.pill{background:#e4e7ec;color:#5b6678}
+.nv:hover{background:rgba(228,231,236,.7)}.nv.on{background:#e4e7ec;color:#2b3340}
+.card,.pk{border:1px solid #e2e5ea}
+button{background:linear-gradient(135deg,#e6e9ee,#cfd4dc);color:#2b3340;box-shadow:inset 0 0 0 1px rgba(120,130,150,.18)}
+button:hover{box-shadow:0 6px 14px rgba(90,100,120,.18),inset 0 0 0 1px rgba(120,130,150,.18)}
+button.g{background:transparent;color:var(--pr);box-shadow:none}
+.dark,.promo button{background:linear-gradient(135deg,#dde1e7,#c6ccd5)!important;color:#2b3340;box-shadow:inset 0 0 0 1px rgba(120,130,150,.2)}
+.logo{background:linear-gradient(135deg,#eceef2,#c9cfd8);color:#3a4455;box-shadow:0 6px 14px rgba(90,100,120,.18)}
+.hd{background:linear-gradient(135deg,#f0f2f5,#dde1e7)}
+.k1{background:linear-gradient(135deg,#f1f3f6,#d3d9e1);color:#344052}
+.k2{background:linear-gradient(135deg,#f4f3f5,#d9d6de);color:#3f3a4d}
+.k3{background:linear-gradient(135deg,#f2f4f3,#d4dbd7);color:#2f4039}
+.k4{background:linear-gradient(135deg,#f5f3f2,#dcd7d4);color:#4a3d38}
+.bar{background:linear-gradient(90deg,#b4bdc9,#808b9b)}
+.card svg rect[fill="#4f7cff"]{fill:#aab4c1}
+.promo .pt{background:linear-gradient(90deg,#6b7686,#9aa5b4);-webkit-background-clip:text;background-clip:text;color:transparent}
+.lg-l{background:radial-gradient(circle at 12% 12%,rgba(255,255,255,.95),transparent 55%),radial-gradient(circle at 88% 88%,rgba(205,211,220,.7),transparent 52%),linear-gradient(135deg,#f6f7f9,#e6e9ee)}
+input:focus,select:focus,textarea:focus{border-color:#8f99a8;box-shadow:0 0 0 3px rgba(143,153,168,.25)}
+#rf:hover{background:#eef0f3;color:#2b3340;border-color:#c5cbd4}
+@media(max-width:900px){.sbar{border-bottom-color:#dcdfe5}}
+/* keep everything light even if the device is in dark mode */
+@media(prefers-color-scheme:dark){:root{color-scheme:light;--card:#fff;--tx:#2b3340;--mu:#8a93a1;--pr:#5b6678;--bd:#e4e7ec;--in:#f3f4f6;--sh:0 2px 14px rgba(60,70,90,.07)}body{background:radial-gradient(900px 520px at 0% 0%,rgba(255,255,255,.9),transparent 62%),radial-gradient(900px 560px at 100% 100%,rgba(205,211,220,.6),transparent 62%),linear-gradient(135deg,#f6f7f9 0%,#e9ebef 55%,#f3f4f6 100%);background-attachment:fixed}}
 </style></head><body><div class="wrap" id="app"></div>
 <script src="firebase-config.js"></script>
 <script>
@@ -286,8 +313,8 @@ async function dash(){
 }
 function filtered(){const f=val("f"),t=val("t"),b=val("b"),d=val("d");return rows.filter(r=>{const day=(r.created_at||"").slice(0,10);return(!f||day>=f)&&(!t||day<=t)&&(!b||r.branch===b)&&(!d||r.dept===d)})}
 const LOGO='<svg viewBox="0 0 32 32" width="62%" height="62%" fill="currentColor" aria-label="NDS EMP"><rect x="3.5" y="18" width="5.5" height="10" rx="1.6" opacity=".65"/><rect x="10.5" y="12.5" width="5.5" height="15.5" rx="1.6" opacity=".82"/><rect x="17.5" y="7" width="5.5" height="21" rx="1.6"/><circle cx="26.2" cy="6.5" r="3.2"/></svg>',LG=()=>LOGO;const sum=L=>L.reduce((a,r)=>a+(+r.bill_value||0),0),ini=n=>(n||"?").split(" ").map(w=>w[0]).slice(0,2).join("").toUpperCase();
-const ICON={home:"🏠",emp:"🏆",sales:"💰",cust:"👥",cm:"💬",staff:"🪪",data:"⚙️"},NAME={home:"Dashboard",emp:"Employees",sales:"Sales",cust:"Customers",cm:"Comments",staff:"Staff",data:"Data"},COL=["#3b82f6","#ffb82e","#8b5cf6","#ff6b4a","#14b8a6"];
-const PIE=["#1877f2","#ffd666","#006c9c","#ff5630"];
+const ICON={home:"🏠",emp:"🏆",sales:"💰",cust:"👥",cm:"💬",staff:"🪪",data:"⚙️"},NAME={home:"Dashboard",emp:"Employees",sales:"Sales",cust:"Customers",cm:"Comments",staff:"Staff",data:"Data"},COL=["#8e99a8","#a9b2bf","#7d8896","#b9c0cb","#9aa4b2"];
+const PIE=["#aab4c1","#c4ccd6","#8f9aa9","#d5dae1"];
 function kpi(cls,icon,label,val,ser,dl){const mx=Math.max(1,...ser),pts=ser.map((v,i)=>[i*100/(ser.length-1),30-v/mx*26].join(","));
   return`<div class="pk ${cls}"><div class="pi">${icon}</div><div class="pd">${dl<0?"↘":"↗"} ${dl>=0?"+":""}${dl.toFixed(1)}%</div><div class="pl">${label}</div><div class="pv">${val}</div><svg class="ps" viewBox="0 0 100 32" preserveAspectRatio="none"><polyline points="${pts}" fill="none" stroke="currentColor" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/></svg></div>`}
 function draw(){
@@ -337,7 +364,7 @@ function home(L,ar){
   const top=br.slice(0,4),ts=top.reduce((a,x)=>a+x.sum,0)||1,P=(a,r)=>[100+r*Math.cos(a),100+r*Math.sin(a)];let a0=-Math.PI/2,arcs="";
   top.forEach((x,i)=>{const f=x.sum/ts,a1=a0+f*2*Math.PI,[x0,y0]=P(a0,84),[x1,y1]=P(a1,84),[tx,ty]=P((a0+a1)/2,54);
     arcs+=f>.999?`<circle cx="100" cy="100" r="84" fill="${PIE[i]}"/>`:`<path class="sl" d="M100 100L${x0} ${y0}A84 84 0 ${f>.5?1:0} 1 ${x1} ${y1}Z" fill="${PIE[i]}" stroke="#fff" stroke-width="2"/>`;
-    if(f>.06)arcs+=`<text x="${tx}" y="${ty+4}" text-anchor="middle" font-size="12" font-weight="600" fill="#fff">${(f*100).toFixed(1)}%</text>`;a0=a1});
+    if(f>.06)arcs+=`<text x="${tx}" y="${ty+4}" text-anchor="middle" font-size="12" font-weight="600" fill="#2b3340">${(f*100).toFixed(1)}%</text>`;a0=a1});
   const C=2*Math.PI*40,N=30,days=[...Array(N)].map((_,i)=>new Date(Date.now()-(N-1-i)*864e5).toISOString().slice(0,10)),dv=days.map(d=>sum(L.filter(r=>(r.created_at||"").slice(0,10)===d))),mx=Math.max(1,...dv);
   const p1=dv.slice(0,15).reduce((a,b)=>a+b,0),p2=dv.slice(15).reduce((a,b)=>a+b,0),dl=p1?(p2-p1)/p1*100:0,w=620/N,dm=Math.max(1,...dp.map(x=>x.sum));
   const dist=[5,4,3,2,1].map(n=>[n,L.filter(r=>r.rating===n).length]),dx=Math.max(1,...dist.map(x=>x[1])),rt=L.filter(r=>r.rating).length;
