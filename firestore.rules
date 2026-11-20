@@ -1,0 +1,65 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // CHANGE this to the same email as adminEmail in firebase-config.js
+    function isAdmin() {
+      return request.auth != null && request.auth.token.email == 'admin@yourcompany.com';
+    }
+
+    // settings (branches, departments, company name) are public; password passcode etc. are admin only
+    match /kv/{k} {
+      allow get: if k == 'settings' || isAdmin();
+      allow list, write: if isAdmin();
+    }
+
+    // staff: the form can look up ONE employee by id, but cannot list everybody
+    match /staff/{id} {
+      allow get: if true;
+      allow list, write: if isAdmin();
+    }
+
+    // NIC numbers etc. never reach the public form
+    match /staffPrivate/{id} {
+      allow read, write: if isAdmin();
+    }
+
+    // customer entries: the QR form may only CREATE (never read, edit or delete)
+    match /feedback/{id} {
+      allow read, update, delete: if isAdmin();
+      allow create: if isAdmin() || validEntry();
+
+      function validEntry() {
+        let d = request.resource.data;
+        return d.keys().hasOnly(['id','created_at','emp_no','staff_name','branch','dept','bill_no','bill_value','cust_name','cust_phone','rating','comment'])
+          && d.keys().hasAll(['id','created_at','emp_no','staff_name','branch','dept','bill_no','bill_value','cust_name','cust_phone','rating','comment'])
+          && d.id == id
+          && d.created_at is string && d.created_at.size() <= 40
+          && d.emp_no is string && d.emp_no.size() <= 40
+          && d.staff_name is string && d.staff_name.size() <= 120
+          && d.branch is string && d.branch.size() <= 80
+          && d.dept is string && d.dept.size() <= 80
+          && d.bill_no is string && d.bill_no.size() > 0 && d.bill_no.size() <= 60
+          && d.bill_value is number && d.bill_value >= 0 && d.bill_value < 10000000
+          && d.cust_name is string && d.cust_name.size() <= 120
+          && d.cust_phone is string && d.cust_phone.size() <= 30
+          && d.comment is string && d.comment.size() <= 1000
+          && (d.rating == null || (d.rating is int && d.rating >= 1 && d.rating <= 5))
+          && exists(/databases/$(database)/documents/staff/$(request.resource.data.emp_no))
+          && existsAfter(/databases/$(database)/documents/photos/$(id));   // photo must be saved in the same batch
+      }
+    }
+
+    // bill photos: create-only for the form
+    match /photos/{id} {
+      allow read, update, delete: if isAdmin();
+      allow create: if isAdmin() || (
+        request.resource.data.keys().hasOnly(['id','data'])
+        && request.resource.data.id == id
+        && request.resource.data.data is string
+        && request.resource.data.data.size() < 950000
+        && existsAfter(/databases/$(database)/documents/feedback/$(id))
+      );
+    }
+  }
+}
