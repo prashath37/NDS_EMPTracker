@@ -8,7 +8,8 @@ window.APP_CONFIG = {
     messagingSenderId: "616657049212",
     appId: "1:616657049212:web:655ddcea06ab19eb79dbf9"
   },
-  // The Firebase Authentication user (Email/Password) allowed to open the admin dashboard.
-  // Must be identical to the email written in firestore.rules.
-  adminEmail: "admin@yourcompany.com"
+  // Login page asks for a username. Firebase Authentication needs an email, so the username is
+  // mapped to this email. Create this exact user in Firebase > Authentication > Users.
+  adminUser: "admin",
+  adminEmail: "admin@nds-emptracker.com"
 };

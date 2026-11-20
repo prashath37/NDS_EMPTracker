@@ -13,9 +13,9 @@ Files: `index.html` (the app), `firebase-config.js` (your Firebase keys), `fires
 1. https://console.firebase.google.com > **Add project** (free Spark plan is enough).
 2. **Build > Firestore Database > Create database**, production mode, pick a region near you (e.g. `asia-south1` Mumbai).
 3. **Build > Authentication > Get started > Email/Password > Enable.**
-   Then **Users > Add user**: your admin email + a strong password. This is the admin login.
-4. **Project settings > General > Your apps > Web (`</>`)**, register an app, copy the `firebaseConfig` values into `firebase-config.js`, and set `adminEmail` to the admin email.
-5. Open `firestore.rules`, replace `admin@yourcompany.com` with the same admin email, then publish the rules:
+   Then **Users > Add user**: email `admin@nds-emptracker.com` + your admin password. On the login page you type the username `admin` and that password.
+4. **Project settings > General > Your apps > Web (`</>`)**, register an app, copy the `firebaseConfig` values into `firebase-config.js`, and keep `adminUser` / `adminEmail` as they are (or change both).
+5. Open `firestore.rules`, check the email matches `adminEmail`, then publish the rules:
    - paste them in **Firestore > Rules > Publish**, or
    - `npm i -g firebase-tools && firebase login && firebase use --add && firebase deploy --only firestore:rules`
 
@@ -41,7 +41,7 @@ git push -u origin main
 
 ## 4. After the first deploy
 
-1. Open `https://<your-app>.vercel.app/#admin` and sign in with the admin email password.
+1. Open `https://<your-app>.vercel.app/#admin` and sign in with username `admin` and your password.
 2. **Data tab** (default passcode `1234`, change it): set branches, departments, company name; add staff.
 3. Print QR codes from the dashboard (Staff tab > QR, or "Open QR code"). They must be generated from the Vercel URL.
 4. Moving old data from the local version: in the old copy use **Data > Export backup**, then **Data > Import backup** here.
