@@ -253,6 +253,8 @@ html,body{height:100%}
 .sbar{position:static;height:auto;top:auto;overflow-y:auto}
 main{min-height:0;overflow-y:auto}
 }
+.aic{grid-column:1/-1}
+.ai{margin-top:12px;font-size:13.5px;line-height:1.55}.ai h4{margin:12px 0 4px;font-size:13px}.ai p{margin:4px 0}.ai ul{margin:4px 0 0;padding-left:18px}.ai li{margin:3px 0}
 </style></head><body><div class="wrap" id="app"></div>
 <script src="firebase-config.js"></script>
 <script>
@@ -267,7 +269,8 @@ const CFG={
   FIREBASE:(window.APP_CONFIG||{}).firebase||null,   // from firebase-config.js. Empty = local-only mode (this browser only)
   ADMIN_USER:((window.APP_CONFIG||{}).adminUser||"admin").toLowerCase(), // username typed on the login page
   ADMIN_EMAIL:(window.APP_CONFIG||{}).adminEmail||"", // the Firebase Authentication user used for the admin login
-  QR_KEY:"k7Qm2xP9",   // part of every QR link; change it to invalidate old printed QRs
+  QR_KEY:"k7Qm2xP9",
+  AI_ENDPOINT:(window.APP_CONFIG||{}).aiEndpoint||"/api/insights",   // serverless function that calls the AI (see api/insights.js). If unreachable, basic rule-based insights are shown   // part of every QR link; change it to invalidate old printed QRs
   BRANCHES:["Head Office",...Array.from({length:8},(_,i)=>"Branch "+(i+1)),...Array.from({length:4},(_,i)=>"Warehouse "+(i+1))],
   DEPARTMENTS:["Men's Wear","Ladies Wear","Kids","Textiles","Footwear","Accessories","Cashier","Other"]
 };
@@ -441,6 +444,53 @@ function pdf(R){
 const wn=()=>{const t=(CFG.W.s+CFG.W.r+CFG.W.b)||1;return[CFG.W.s,CFG.W.r,CFG.W.b].map(v=>Math.round(v/t*100))};
 function rank(L){const a=agg(L,r=>r.emp_no,r=>r.staff_name),by={};L.forEach(r=>by[r.emp_no]=r.branch);const ms=Math.max(1,...a.map(x=>x.sum)),mn=Math.max(1,...a.map(x=>x.n));
   return a.map(x=>({...x,br:by[x.k],rt:x.rc?x.rs/x.rc:0,score:Math.round((x.sum/ms*CFG.W.s+(x.rc?x.rs/x.rc/5:0)*CFG.W.r+x.n/mn*CFG.W.b)/((CFG.W.s+CFG.W.r+CFG.W.b)||1)*100)})).sort((p,q)=>q.score-p.score)}
+/* ---------- AI INSIGHTS ---------- */
+const AIT=[["Waiting or slow service",/wait|slow|long|queue|delay|late/i],["Friendly, helpful staff",/friendly|polite|helpful|kind|excellent|great|nice|good service/i],["Pricing",/price|expens|cost|cheap|discount|offer/i],["Product choice or stock",/quality|stock|size|colou?r|available|variety|material/i],["Billing or payment",/billing|cashier|payment|receipt|bill/i]];
+function aiFacts(L){
+  const tot=sum(L),rt=L.filter(r=>r.rating),ar=rt.length?rt.reduce((a,r)=>a+r.rating,0)/rt.length:0;
+  const dayOf=i=>new Date(Date.now()-i*864e5).toISOString().slice(0,10),inR=(r,a,b)=>{const d=(r.created_at||"").slice(0,10);return d>=dayOf(b)&&d<=dayOf(a)};
+  return{period:{from:val("f")||"start",to:val("t")||"today",branch:val("b")||"All",department:val("d")||"All"},
+    bills:L.length,total_sales:r2(tot),avg_bill:r2(L.length?tot/L.length:0),avg_rating:ar?r2(ar):null,sales_target:CFG.SALES_TARGET,
+    sales_last_15_days:r2(sum(L.filter(r=>inR(r,0,14)))),sales_prev_15_days:r2(sum(L.filter(r=>inR(r,15,29)))),
+    low_rated_entries:L.filter(r=>r.rating&&r.rating<=2).length,
+    branches:agg(L,r=>r.branch).map(x=>({branch:x.k,bills:x.n,sales:r2(x.sum),avg_rating:x.rc?r2(x.rs/x.rc):null})).sort((a,b)=>b.sales-a.sales),
+    departments:agg(L,r=>r.dept).map(x=>({department:x.k,bills:x.n,sales:r2(x.sum)})).sort((a,b)=>b.sales-a.sales),
+    employees:rank(L).slice(0,15).map(x=>({name:x.nm,branch:x.br,bills:x.n,sales:r2(x.sum),avg_rating:x.rc?r2(x.rt):null,score:x.score})),
+    comments:L.filter(r=>r.comment).slice(0,40).map(r=>({rating:r.rating||null,branch:r.branch,text:String(r.comment).slice(0,200)}))};   // no phone numbers or customer names are sent
+}
+function aiLocal(F){
+  const o=["## Highlights"];
+  o.push(`- Sales were ${money(F.total_sales)} from ${F.bills} bills (average bill ${money(F.avg_bill)})${F.avg_rating?`, with an average rating of ${F.avg_rating}/5`:""}.`);
+  if(F.sales_target)o.push(`- That is ${Math.round(F.total_sales/F.sales_target*100)}% of the monthly target of ${money(F.sales_target)}.`);
+  if(F.sales_prev_15_days){const d=(F.sales_last_15_days-F.sales_prev_15_days)/F.sales_prev_15_days*100;o.push(`- The last 15 days ${d>=0?"grew":"fell"} ${Math.abs(d).toFixed(1)}% compared with the 15 days before.`)}
+  if(F.branches[0])o.push(`- Top branch by sales: ${F.branches[0].branch} (${money(F.branches[0].sales)}).`);
+  if(F.employees[0])o.push(`- Top employee by score: ${F.employees[0].name} (${F.employees[0].branch}), score ${F.employees[0].score}.`);
+  o.push("## Concerns");
+  const rb=F.branches.filter(b=>b.avg_rating).sort((a,b)=>a.avg_rating-b.avg_rating)[0];
+  o.push(F.low_rated_entries?`- ${F.low_rated_entries} entries were rated 1-2 stars; review them under "Needs attention".`:"- No 1-2 star ratings in this period.");
+  if(rb&&rb.avg_rating<4)o.push(`- Lowest-rated branch: ${rb.branch} (${rb.avg_rating}/5).`);
+  const th=AIT.map(([n,re])=>[n,F.comments.filter(c=>re.test(c.text)).length]).filter(x=>x[1]).sort((a,b)=>b[1]-a[1]);
+  o.push("## Customer comment themes");
+  o.push(th.length?`- ${th.map(x=>x[0]+" ("+x[1]+")").join(", ")}.`:(F.comments.length?"- No common themes found in the comments.":"- No comments in this period."));
+  return o.join("\n");
+}
+function aiHtml(t){let h="",ul=false;for(const l of String(t).replace(/\*\*/g,"").split("\n")){const x=l.trim();if(!x)continue;
+  if(x.startsWith("- ")){if(!ul){h+="<ul>";ul=true}h+="<li>"+esc(x.slice(2))+"</li>";continue}
+  if(ul){h+="</ul>";ul=false}h+=x.startsWith("## ")?"<h4>"+esc(x.slice(3))+"</h4>":"<p>"+esc(x)+"</p>"}
+  return h+(ul?"</ul>":"")}
+async function runAI(L){
+  const b=$("#aig"),o=$("#aio"),st=$("#ais");if(!b)return;
+  if(!L.length){o.innerHTML="<p>No entries in the selected period.</p>";return}
+  b.disabled=true;b.textContent="Analysing…";o.innerHTML="";const F=aiFacts(L);let txt="",note="";
+  try{
+    if(!CFG.AI_ENDPOINT)throw 0;
+    const u=await fbUser(),h={"Content-Type":"application/json"};if(u)h.Authorization="Bearer "+await u.getIdToken();
+    const r=await TO(fetch(CFG.AI_ENDPOINT,{method:"POST",headers:h,body:JSON.stringify({facts:F})}),45000);
+    if(!r.ok)throw 0;txt=(await r.json()).text||"";if(!txt)throw 0;
+    note="AI-written summary. Figures come from your data; please verify before acting."
+  }catch(_){txt=aiLocal(F);note="Basic insights. The AI service is not connected, so this summary is rule-based."}
+  o.innerHTML=aiHtml(txt);st.textContent=note;b.disabled=false;b.textContent="Regenerate";
+}
 const CD=(t,h,c)=>`<div class="card ${c||""}"><h2>${t}</h2>${h}</div>`,NONE='<span class="mu">No data yet</span>';
 function home(L,ar){
   const br=agg(L,r=>r.branch).sort((x,y)=>y.sum-x.sum),dp=agg(L,r=>r.dept).sort((x,y)=>y.sum-x.sum).slice(0,6),rk=rank(L),tot=sum(L);
@@ -455,6 +505,7 @@ function home(L,ar){
   const tg=Math.min(100,tot/CFG.SALES_TARGET*100),low=L.filter(r=>r.rating&&r.rating<=2).slice(0,4);
   const bt=br.map(x=>{const rr=L.filter(r=>r.branch===x.k&&r.rating);return`<tr><td>${esc(x.k)}</td><td>${x.n}</td><td>${money(x.sum)}</td><td>${rr.length?(rr.reduce((a,r)=>a+r.rating,0)/rr.length).toFixed(1)+" ★":"—"}</td>${brow(x,br[0].sum||1)}</tr>`}).join("");
   return`<div class="hg">`+
+  CD("✨ AI insights",`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><div class="mu" id="ais">Summary, comment themes and suggestions from the data currently shown.</div><button id="aig">Generate insights</button></div><div id="aio" class="ai"></div>`,"aic")+
   CD("Sales target",`<div class="big">${tg.toFixed(0)}%</div><div class="mu">${money(tot)} of ${money(CFG.SALES_TARGET)}</div><div class="trk" style="margin-top:12px;height:14px"><div class="bar" style="width:${tg}%;height:14px"></div></div><div class="mu" style="margin-top:8px">Active staff: ${rk.length} · Branches: ${br.length}</div>`)+
   CD("Sales — last 30 days",`<svg viewBox="0 0 620 120" width="100%" preserveAspectRatio="none">${dv.map((v,i)=>`<rect x="${i*w+2}" y="${110-v/mx*100}" width="${w-4}" height="${v/mx*100}" fill="#4f7cff" opacity=".85"/>`).join("")}</svg><div class="mu">Last 15 days vs previous 15 <b style="color:${dl>=0?"#16a34a":"#dc2626"}">${dl>=0?"▲":"▼"} ${Math.abs(dl).toFixed(1)}%</b></div>`,"w2")+
   CD("Customer ratings",`<div style="display:flex;gap:14px;align-items:center"><svg viewBox="0 0 100 100" width="96"><circle cx="50" cy="50" r="40" fill="none" stroke="var(--bd)" stroke-width="12"/><circle cx="50" cy="50" r="40" fill="none" stroke="#f59e0b" stroke-width="12" stroke-dasharray="${ar/5*C} ${C}" transform="rotate(-90 50 50)"/><text x="50" y="57" text-anchor="middle" font-size="22" font-weight="700" fill="currentColor">${ar?ar.toFixed(1):"—"}</text></svg><div style="flex:1;font-size:12px">${dist.map(([n,c])=>`<div style="display:flex;gap:6px;align-items:center;margin:3px 0"><span style="width:22px">${n}★</span><div class="trk" style="height:6px"><div class="bar" style="width:${c/dx*100}%;height:6px;background:#f59e0b"></div></div><span style="width:22px;text-align:right">${c}</span></div>`).join("")}</div></div><div class="mu" style="margin-top:8px">${rt} of ${L.length} entries rated</div>`)+
@@ -487,6 +538,7 @@ function body(an){
   $("#body").className=an===false?"":"an";
   $("#body").innerHTML=(tab==="data"?"":`<div class="kp">${kpi("k1","🛍️","Total sales",money(tot),sr(sum),dl(sum))}${kpi("k2","🧾","Bills recorded",L.length,sr(x=>x.length),dl(x=>x.length))}${kpi("k3","💳","Avg bill",money(L.length?tot/L.length:0),sr(ab),dl(ab))}${kpi("k4","⭐","Avg rating",ar?ar.toFixed(1)+" ★":"—",sr(avg),dl(avg))}</div>`)+(tab==="home"?home(L,ar):tab==="data"?dataView():`<div class="card tw">${tabHtml(L)}</div>`);
   document.querySelectorAll("[data-b]").forEach(b=>b.onclick=async()=>{const p=await one("photos",b.dataset.b),v=document.createElement("div");v.id="ov";v.innerHTML=p?`<img src="${p.data}">`:'<span style="color:#fff">No photo</span>';v.onclick=()=>v.remove();document.body.appendChild(v)});
+  if($("#aig"))$("#aig").onclick=()=>runAI(L);
   if($("#xl")){$("#xl").onclick=()=>xlsx(report(L));$("#pd").onclick=()=>pdf(report(L))}
   if($("#cta"))$("#cta").onclick=()=>showQR(qrBase()+"?k="+CFG.QR_KEY,"Staff form QR (all staff)");
   if($("#s"))$("#s").oninput=e=>{S=e.target.value;body(false);const s=$("#s");s.focus();s.setSelectionRange(S.length,S.length)};
