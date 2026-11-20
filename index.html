@@ -321,9 +321,10 @@ const putMany=async(s,arr)=>{if(FBON())return fputMany(s,arr);for(const v of arr
 const del=(s,k)=>FBON()?fdel(s,k):ldel(s,k);
 const clr=s=>FBON()?fclr(s):lclr(s);
 /* a form entry + its bill photo are saved together, or not at all */
+const NOPHOTO="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";   // tiny placeholder: your Firebase rules save a photo record with every entry
 const putEntry=async(fb,photo)=>{
   if(!FBON()){return lput("feedback",fb)}
-  const{F,db}=await fbInit;fb.id=String(fb.id||newId());const b=F.writeBatch(db);b.set(F.doc(db,"feedback",fb.id),fb);await TO(b.commit(),40000);return fb.id};
+  const{F,db}=await fbInit;fb.id=String(fb.id||newId());const b=F.writeBatch(db);b.set(F.doc(db,"feedback",fb.id),fb);b.set(F.doc(db,"photos",fb.id),{id:fb.id,data:NOPHOTO});await TO(b.commit(),40000);return fb.id};
 const M2={},SS={g:k=>{try{return sessionStorage.getItem(k)}catch(_){return M2[k]??null}},s:(k,v)=>{try{sessionStorage.setItem(k,v)}catch(_){M2[k]=v}},r:k=>{try{sessionStorage.removeItem(k)}catch(_){delete M2[k]}}};
 const failHint=m=>/insufficient permissions|permission-denied/i.test(m)?"Firebase rules blocked this. Publish firestore.rules in Firebase > Firestore Database > Rules, and make sure the admin email inside the rules is exactly "+CFG.ADMIN_EMAIL+".":/offline|unavailable|not-found|NOT_FOUND/i.test(m)?"Firestore cannot be reached. Make sure the database is created: Firebase > Firestore Database > Create database (Standard edition).":"";
 const fail=m=>{const t=failHint(String(m));$("#app").innerHTML='<div class="card narrow"><h1>Something went wrong</h1><p class="mu">'+esc(m)+'</p>'+(t?'<p><b>'+esc(t)+'</b></p>':'')+'<p><button onclick="location.reload()">Reload</button></p></div>'};
@@ -361,7 +362,7 @@ async function form(){
     $("#sub").disabled=true;$("#sub").textContent="Submitting…";const slow=setTimeout(()=>{o.innerHTML='<div class="msg">Still saving… the connection looks slow. Please wait and do not close this page.</div>'},8000);
     try{await putEntry({...(FBON()?{id:entryId(s.branch,bn)}:{}),created_at:new Date().toISOString(),emp_no:s.emp_no,staff_name:s.name,branch:s.branch,dept:s.dept,bill_no:bn,bill_value:v,cust_name:cn,cust_phone:cp,rating:rating||null,comment:$("#cm").value.trim()});clearTimeout(slow);lastEmp=s.emp_no;
       $("#app").innerHTML=`<div class="fm"><div class="card cen" style="padding:32px 20px"><div class="logo" style="margin:0 auto 14px;background:linear-gradient(135deg,#3fd6a7,#1fa77d)">✓</div><h1>Entry saved</h1><p class="mu">Bill ${esc(bn)} · ${money(v)} · ${esc(cn)}</p><button id="nx" style="width:100%;margin-top:10px">Add another</button></div></div>`;$("#nx").onclick=form}
-    catch(e){o.innerHTML='<div class="msg">'+esc(e.code==="permission-denied"?"Not saved: this bill was already submitted, or the server refused the entry.":"Could not save: "+e.message)+'</div>';clearTimeout(slow);$("#sub").textContent="Submit entry";$("#sub").disabled=false}};
+    catch(e){o.innerHTML='<div class="msg">'+esc(e.code==="permission-denied"?"Not saved: the server refused this entry. It may be a duplicate bill number for the same branch, or a Firebase rules problem.":"Could not save: "+e.message)+'</div>';clearTimeout(slow);$("#sub").textContent="Submit entry";$("#sub").disabled=false}};
 }
 const shrink=(f,m=1200)=>new Promise(res=>{const i=new Image();i.onload=()=>{const k=Math.min(1,m/Math.max(i.width,i.height)),c=document.createElement("canvas");c.width=i.width*k;c.height=i.height*k;c.getContext("2d").drawImage(i,0,0,c.width,c.height);res(c.toDataURL("image/jpeg",.7))};i.src=URL.createObjectURL(f)});
 function parse(t){
@@ -537,7 +538,7 @@ function body(an){
   const avg=x=>{const q=x.filter(r=>r.rating);return q.length?q.reduce((a,r)=>a+r.rating,0)/q.length:0},ab=x=>x.length?sum(x)/x.length:0,dl=(f)=>{const a=f(l7),b=f(p7);return b?(a-b)/b*100:0},sr=f=>dr.map(f);
   $("#body").className=an===false?"":"an";
   $("#body").innerHTML=(tab==="data"?"":`<div class="kp">${kpi("k1","🛍️","Total sales",money(tot),sr(sum),dl(sum))}${kpi("k2","🧾","Bills recorded",L.length,sr(x=>x.length),dl(x=>x.length))}${kpi("k3","💳","Avg bill",money(L.length?tot/L.length:0),sr(ab),dl(ab))}${kpi("k4","⭐","Avg rating",ar?ar.toFixed(1)+" ★":"—",sr(avg),dl(avg))}</div>`)+(tab==="home"?home(L,ar):tab==="data"?dataView():`<div class="card tw">${tabHtml(L)}</div>`);
-  document.querySelectorAll("[data-b]").forEach(b=>b.onclick=async()=>{const p=await one("photos",b.dataset.b),v=document.createElement("div");v.id="ov";v.innerHTML=p?`<img src="${p.data}">`:'<span style="color:#fff">No photo</span>';v.onclick=()=>v.remove();document.body.appendChild(v)});
+  document.querySelectorAll("[data-b]").forEach(b=>b.onclick=async()=>{const p=await one("photos",b.dataset.b),v=document.createElement("div");v.id="ov";v.innerHTML=(p&&p.data&&p.data.length>200)?`<img src="${p.data}">`:'<span style="color:#fff">No photo</span>';v.onclick=()=>v.remove();document.body.appendChild(v)});
   if($("#aig"))$("#aig").onclick=()=>runAI(L);
   if($("#xl")){$("#xl").onclick=()=>xlsx(report(L));$("#pd").onclick=()=>pdf(report(L))}
   if($("#cta"))$("#cta").onclick=()=>showQR(qrBase()+"?k="+CFG.QR_KEY,"Staff form QR (all staff)");
